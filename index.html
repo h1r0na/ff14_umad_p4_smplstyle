@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>絶妖星乱舞p4 簡略版</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif; background: #111; color: #e8e8e8; padding: 12px; }
+
+  .title-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  h1 { font-size: 15px; font-weight: 500; }
+  .clear-btn { font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 0.5px solid rgba(255,255,255,0.25); background: transparent; color: #aaa; cursor: pointer; }
+  .clear-btn:hover { background: rgba(255,255,255,0.08); }
+
+  /* 入力表示 */
+  .display { background: #1c1c1c; border: 0.5px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .digits { display: flex; gap: 4px; justify-content: center; }
+  .digit-col { flex: 1; max-width: 56px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .digit-label { display: flex; flex-direction: column; align-items: center; line-height: 1.2; min-height: 26px; }
+  .dl-group { font-size: 9px; color: #888; white-space: nowrap; }
+  .dl-sub { font-size: 9px; color: #7EC8E3; white-space: nowrap; }
+  .digit { width: 100%; aspect-ratio: 3/4; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 600; border-radius: 8px; background: #232323; border: 1px solid rgba(255,255,255,0.1); color: #555; }
+  .digit.filled { color: #e8e8e8; border-color: rgba(126,200,227,0.5); }
+  .digit.cursor { border-color: #7EC8E3; }
+
+  /* テンキー風入力 */
+  .keypad { display: flex; gap: 10px; margin-bottom: 12px; }
+  .key { flex: 1; aspect-ratio: 2/1; font-size: 28px; font-weight: 600; border-radius: 12px; border: 0.5px solid rgba(255,255,255,0.2); background: #1c1c1c; color: #e8e8e8; cursor: pointer; transition: background 0.08s; }
+  .key:active { background: #2a2a2a; }
+  .key.del { font-size: 18px; color: #aaa; flex: 0.6; }
+
+  /* 結果 */
+  .summary { background: #1c1c1c; border: 0.5px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .sum-title { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+  .sum-row { font-size: 14px; margin-bottom: 6px; line-height: 1.5; }
+  .sum-row .lbl { font-weight: 500; color: #aaa; margin-right: 4px; }
+  .sum-empty { font-size: 12px; color: #666; }
+  /* 集計行の高さ確保（レイアウトが動かないように） */
+  .sum-row { min-height: 21px; }
+  .sum-row.placeholder { color: #555; }
+
+  /* 追加トグル（結果非反映・表示のみ） */
+  .extra { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .extra-note { font-size: 12px; color: #888; }
+  .extra-row { display: flex; gap: 10px; }
+  .ext-btn { flex: 1; font-size: 15px; font-weight: 500; padding: 9px 0; border-radius: 10px; border: 0.5px solid rgba(255,255,255,0.2); background: #1c1c1c; color: #ccc; cursor: pointer; transition: background 0.08s, border-color 0.08s, color 0.08s; }
+  .ext-btn:active { background: #2a2a2a; }
+  /* 加速度（排他・緑/赤） */
+  .ext-btn.acc-true.on  { background: #1D9E75; border-color: #1D9E75; color: #fff; }
+  .ext-btn.acc-false.on { background: #E24B4A; border-color: #E24B4A; color: #fff; }
+  /* 雷=薄紫 / 氷=水色 */
+  .ext-btn.thunder.on { background: #6B4E9E; border-color: #6B4E9E; color: #fff; }
+  .ext-btn.ice.on     { background: #2E7D9E; border-color: #2E7D9E; color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="title-bar">
+  <h1>絶妖星乱舞p4 簡略版</h1>
+  <button class="clear-btn" onclick="clearAll()">クリア</button>
+</div>
+
+<div class="display">
+  <div class="digits" id="digits"></div>
+</div>
+
+<div class="summary" id="summary"></div>
+
+<div class="keypad">
+  <button class="key" onclick="press(1)">１</button>
+  <button class="key" onclick="press(2)">２</button>
+  <button class="key del" onclick="del()">⌫</button>
+</div>
+
+<div class="extra">
+  <div class="extra-note">以下メモ（集計結果には反映されません）</div>
+  <div class="extra-row">
+    <button class="ext-btn acc-true"  id="accTrue"  onclick="toggleAcc('true')">加速度（本当）</button>
+    <button class="ext-btn acc-false" id="accFalse" onclick="toggleAcc('false')">加速度（嘘）</button>
+  </div>
+  <div class="extra-row">
+    <button class="ext-btn thunder" id="thunder" onclick="toggleExt('thunder')">雷</button>
+    <button class="ext-btn ice"     id="ice"     onclick="toggleExt('ice')">氷</button>
+  </div>
+</div>
+
+
+<script>
+let input = ''; // 最大6桁
+
+function resolveShisen(isTrue){ return isTrue ? '視線（見ない）' : '視線（見る）'; }
+function suirai(isTrue){ return isTrue ? '水雷（本当）' : '水雷（嘘）'; }
+function takenoko(base, isTrue){
+  if(base==='honoo')   return isTrue ? 'たけのこAoE' : 'たけのこドーナツ';
+  if(base==='tsunami') return isTrue ? 'たけのこドーナツ' : 'たけのこAoE';
+}
+const SORT=['水雷（本当）','水雷（嘘）','視線（見る）','視線（見ない）','たけのこAoE','たけのこドーナツ'];
+function sortP(arr){return [...arr].sort((a,b)=>{const ia=SORT.indexOf(a),ib=SORT.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});}
+
+function compute(d){
+  const [g1t,g1time,h1t,h1sel,g2t,h2t]=d.split('').map(Number);
+  const early=new Set(), late=new Set();
+
+  const gc1True   = g1t===1;
+  const gc1Early  = g1time===1;
+  const gc2True   = g2t===1;
+  const ht1True   = h1t===1;
+  const ht1Honoo  = h1sel===1; // 1=ほのお(早) 2=つなみ(遅)
+  const ht2True   = h2t===1;
+
+  // GC1 水雷
+  (gc1Early ? early : late).add(suirai(gc1True));
+  // GC1 視線（早固定）
+  early.add(resolveShisen(gc1True));
+
+  // GC2 水雷（タイミングはGC1の裏返し）
+  const gc2Early = !gc1Early;
+  (gc2Early ? early : late).add(suirai(gc2True));
+  // GC2 視線（遅固定）
+  late.add(resolveShisen(gc2True));
+
+  // ほのおつなみ1（ほのお=早, つなみ=遅）
+  if(ht1Honoo) early.add(takenoko('honoo', ht1True));
+  else         late.add(takenoko('tsunami', ht1True));
+
+  // ほのおつなみ2（1で押されなかった方）
+  if(ht1Honoo) late.add(takenoko('tsunami', ht2True));
+  else         early.add(takenoko('honoo', ht2True));
+
+  return {early:sortP([...early]), late:sortP([...late])};
+}
+
+const DIGIT_LABELS = [
+  { group:'GC1',     sub:'本当?' },
+  { group:'GC1',     sub:'早?' },
+  { group:'ほのつな1', sub:'本当?' },
+  { group:'ほのつな1', sub:'ほのお?' },
+  { group:'GC2',     sub:'本当?' },
+  { group:'ほのつな2', sub:'本当?' },
+];
+
+function renderDigits(){
+  const wrap = document.getElementById('digits');
+  let html = '';
+  for(let i=0;i<6;i++){
+    const ch = input[i] || '';
+    const filled = ch ? 'filled' : '';
+    const cursor = (i === input.length && input.length < 6) ? 'cursor' : '';
+    const lab = DIGIT_LABELS[i];
+    html += `<div class="digit-col">
+      <div class="digit-label"><span class="dl-group">${lab.group}</span><span class="dl-sub">${lab.sub}</span></div>
+      <div class="digit ${filled} ${cursor}">${ch}</div>
+    </div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+function renderSummary(){
+  const el = document.getElementById('summary');
+  let early = '', late = '';
+  if(input.length === 6){
+    const r = compute(input);
+    early = r.early.join('、');
+    late  = r.late.join('、');
+  }
+  // 「集計結果／早／遅」の3行分を常に確保（中身が無くても行は出す）
+  let html = '<div class="sum-title">集計結果</div>';
+  html += `<div class="sum-row${early?'':' placeholder'}"><span class="lbl">早：</span>${early || (input.length<6 ? '（6桁入力で表示）' : '')}</div>`;
+  html += `<div class="sum-row${late?'':' placeholder'}"><span class="lbl">遅：</span>${late || ''}</div>`;
+  el.innerHTML = html;
+}
+
+// 追加トグル（結果非反映・表示のみ）
+let accState = null;            // 'true' / 'false' / null（排他）
+let extState = { thunder:false, ice:false }; // 独立
+
+function toggleAcc(v){
+  accState = (accState === v) ? null : v;  // 同じものを再度押すと解除
+  document.getElementById('accTrue').classList.toggle('on', accState === 'true');
+  document.getElementById('accFalse').classList.toggle('on', accState === 'false');
+}
+function toggleExt(k){
+  extState[k] = !extState[k];
+  document.getElementById(k).classList.toggle('on', extState[k]);
+}
+
+function render(){ renderDigits(); renderSummary(); }
+
+function press(n){
+  if(input.length >= 6) return;
+  input += String(n);
+  render();
+}
+function del(){
+  input = input.slice(0, -1);
+  render();
+}
+function clearAll(){
+  input = '';
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
